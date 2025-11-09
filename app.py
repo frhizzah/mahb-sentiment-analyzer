@@ -5,38 +5,26 @@ import joblib
 import numpy as np
 import re
 import string
-import os
 import nltk
+from nltk.corpus import stopwords, wordnet
+from nltk.stem import WordNetLemmatizer
+from nltk import word_tokenize, pos_tag
 
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
 # -----------------------
-# NLTK setup
+# Force NLTK downloads
 # -----------------------
-
-nltk_data_dir = os.path.join(os.getcwd(), "nltk_data")
-os.makedirs(nltk_data_dir, exist_ok=True)
-nltk.data.path.append(nltk_data_dir)
-
-# Ensure NLTK uses the correct data directory
-required_nltk_packages = [
-    "punkt",
-    "stopwords",
-    "wordnet",
-    "averaged_perceptron_tagger"
-]
-
-for pkg in required_nltk_packages:
+nltk_packages = ["punkt", "stopwords", "wordnet", "averaged_perceptron_tagger"]
+for pkg in nltk_packages:
     try:
         nltk.data.find(pkg)
     except LookupError:
-        nltk.download(pkg, download_dir=nltk_data_dir, quiet=True)
-    
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords, wordnet
-from nltk.stem import WordNetLemmatizer
-from nltk import pos_tag
+        nltk.download(pkg, quiet=True)
 
+# -----------------------
+# Stopwords & Lemmatizer
+# -----------------------
 stop_words = set(stopwords.words('english'))
 domain_words = {
     "airport","klia","staff","malaysia","malaysian","flight","terminal","gate","counter",
@@ -44,7 +32,6 @@ domain_words = {
     "baggage","luggage"
 }
 stop_words.update(domain_words)
-
 lemmatizer = WordNetLemmatizer()
 
 # -----------------------
@@ -65,27 +52,22 @@ def handle_negation(text):
 def preprocess(text):
     if not isinstance(text, str):
         return ""
-    text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
     text = text.lower()
     text = handle_negation(text)
     text = re.sub(r'\s+', ' ', text).strip()
     text = text.translate(str.maketrans("", "", string.punctuation))
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
-    lemmas = [
-        lemmatizer.lemmatize(tok, get_pos(tag))
-        for tok, tag in tagged
-        if tok not in stop_words
-    ]
+    lemmas = [lemmatizer.lemmatize(tok, get_pos(tag)) for tok, tag in tagged if tok not in stop_words]
     return " ".join(lemmas)
 
 # -----------------------
-# Load models
+# Load model
 # -----------------------
 @st.cache_resource
 def load_models():
     tfidf = joblib.load("tfidf_vectorizer.pkl")
-    svm = joblib.load("svm_model_tuned.pkl")
+    svm = joblib.load("svm_model_tuned.pkl")  # should be CalibratedClassifierCV
     return tfidf, svm
 
 tfidf, svm = load_models()
@@ -106,7 +88,7 @@ def predict_sentiment(text):
 # Streamlit UI
 # -----------------------
 st.title("MAHB Customer Review Sentiment Analyzer")
-st.markdown("**Model:** Tuned LinearSVC (probability)")
+st.markdown("**Model:** Tuned LinearSVC + CalibratedClassifierCV")
 
 user_input = st.text_area("Enter your review:", height=180)
 
