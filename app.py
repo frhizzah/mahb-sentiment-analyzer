@@ -21,7 +21,7 @@ os.makedirs(nltk_data_dir, exist_ok=True)  # <- NEW
 nltk.data.path.append(nltk_data_dir)  # <- NEW
 
 # Force download at runtime so Streamlit Cloud always has them
-for pkg in ["punkt", "stopwords", "wordnet", "averaged_perceptron_tagger"]:
+for pkg in ["punkt", "stopwords", "wordnet", "averaged_perceptron_tagger", "punk_tab"]:
     try:
         nltk.data.find(f"{pkg}")
     except LookupError:
