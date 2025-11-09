@@ -1,4 +1,5 @@
 # app.py
+
 import streamlit as st
 import joblib
 import numpy as np
@@ -12,17 +13,13 @@ import os
 
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
-# ========================
+# ------------------------
 # NLTK setup
-# ========================
-NLTK_DATA_PATH = "nltk_data"
-os.makedirs(NLTK_DATA_PATH, exist_ok=True)
-nltk.data.path.append(NLTK_DATA_PATH)
-
-nltk.download('punkt', download_dir=NLTK_DATA_PATH)
-nltk.download('stopwords', download_dir=NLTK_DATA_PATH)
-nltk.download('wordnet', download_dir=NLTK_DATA_PATH)
-nltk.download('averaged_perceptron_tagger', download_dir=NLTK_DATA_PATH)
+# ------------------------
+nltk.download('punkt')
+nltk.download('stopwords')
+nltk.download('wordnet')
+nltk.download('averaged_perceptron_tagger')
 
 stop_words = set(stopwords.words('english'))
 domain_words = {
@@ -33,9 +30,9 @@ domain_words = {
 stop_words.update(domain_words)
 lemmatizer = WordNetLemmatizer()
 
-# ========================
-# Preprocessing
-# ========================
+# ------------------------
+# Preprocessing function
+# ------------------------
 def get_pos(tag):
     if tag.startswith('J'): return wordnet.ADJ
     elif tag.startswith('V'): return wordnet.VERB
@@ -46,7 +43,6 @@ def get_pos(tag):
 def preprocess(text):
     if not isinstance(text, str):
         return ""
-    # Remove weird chars
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
     text = re.sub(r'\s+', ' ', text).strip()
     text = text.lower().translate(str.maketrans("", "", string.punctuation))
@@ -59,40 +55,53 @@ def preprocess(text):
     ]
     return " ".join(lemmas)
 
-# ========================
-# Load Models
-# ========================
+# ------------------------
+# Load models
+# ------------------------
 @st.cache_resource
 def load_models():
     tfidf = joblib.load("tfidf_vectorizer.pkl")
-    svm = joblib.load("svm_model_3class.pkl")  # new 3-class SVM
+    svm = joblib.load("svm_model_3class.pkl")
     return tfidf, svm
 
 tfidf, svm = load_models()
 
-# ========================
-# Predict
-# ========================
+# ------------------------
+# Compute confidence
+# ------------------------
+from scipy.special import softmax
+
 def compute_confidence(model, X):
-    # Convert decision_function output to softmax probabilities
     decision = model.decision_function(X)
+    if len(decision.shape) == 1:
+        prob_pos = 1 / (1 + np.exp(-decision))
+        return max(prob_pos, 1-prob_pos)
     e_x = np.exp(decision - np.max(decision, axis=1, keepdims=True))
     probs = e_x / np.sum(e_x, axis=1, keepdims=True)
-    return probs  # array of probabilities for all classes
+    return np.max(probs)
 
+# ------------------------
+# Predict sentiment
+# ------------------------
 def predict_sentiment(text):
     processed = preprocess(text)
     X = tfidf.transform([processed])
-    probs = compute_confidence(svm, X)[0]  # 1D array
-    classes = svm.classes_
-    pred_idx = np.argmax(probs)
-    return classes[pred_idx], probs[pred_idx]*100  # return label and confidence %
+    pred = svm.predict(X)[0]
+    # confidence as percentage
+    decision = svm.decision_function(X)
+    if len(decision.shape)==1:
+        conf = 1/(1+np.exp(-decision))
+        conf_pct = float(max(conf,1-conf)*100)
+    else:
+        probs = softmax(decision, axis=1)
+        conf_pct = float(np.max(probs)*100)
+    return pred, conf_pct
 
-# ========================
+# ------------------------
 # Streamlit UI
-# ========================
+# ------------------------
 st.title("MAHB Customer Review Sentiment Analyzer")
-st.markdown("**Model:** Tuned LinearSVC (3-class)")
+st.markdown("**Model:** Tuned LinearSVC 3-Class")
 
 user_input = st.text_area("Enter your review:", height=180)
 
@@ -100,7 +109,8 @@ if st.button("Analyze"):
     if not user_input.strip():
         st.error("Please enter a review first.")
     else:
-        pred, conf = predict_sentiment(user_input)
+        pred, conf_pct = predict_sentiment(user_input)
         st.subheader("Sentiment Result")
         st.markdown(f"**Sentiment:** {pred}")
-        st.markdown(f"**Confidence:** {conf:.2f}%")
+        st.markdown(f"**Confidence:** {conf_pct:.2f}%")
+        st.progress(int(conf_pct))
