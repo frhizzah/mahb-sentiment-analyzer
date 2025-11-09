@@ -1,5 +1,8 @@
+# app.py
+
 import streamlit as st
 import joblib
+import numpy as np
 import re
 import string
 import nltk
@@ -10,19 +13,27 @@ import os
 
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
+# -----------------------
 # NLTK setup
+# -----------------------
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
 nltk.download('averaged_perceptron_tagger')
 
 stop_words = set(stopwords.words('english'))
-domain_words = {"airport","klia","staff","malaysia","malaysian","flight","terminal","gate","counter",
-                "immigration","airline","airlines","plane","arrival","departure","queue","checkin",
-                "baggage","luggage"}
+domain_words = {
+    "airport","klia","staff","malaysia","malaysian","flight","terminal","gate","counter",
+    "immigration","airline","airlines","plane","arrival","departure","queue","checkin",
+    "baggage","luggage"
+}
 stop_words.update(domain_words)
+
 lemmatizer = WordNetLemmatizer()
 
+# -----------------------
+# Preprocessing functions
+# -----------------------
 def get_pos(tag):
     if tag.startswith('J'): return wordnet.ADJ
     elif tag.startswith('V'): return wordnet.VERB
@@ -31,23 +42,30 @@ def get_pos(tag):
     else: return wordnet.NOUN
 
 def handle_negation(text):
-    neg_pattern = re.compile(r"\b(not|no|never|n't)\b\s+(\w+)")
-    return neg_pattern.sub(lambda m: m.group(1) + ' ' + m.group(2) + '_NEG', text)
+    text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
+    text = re.sub(r"\bno\b\s+(\w+)", r"no_\1", text)
+    return text
 
 def preprocess(text):
     if not isinstance(text, str):
         return ""
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
-    text = re.sub(r'\s+', ' ', text).strip()
     text = text.lower()
     text = handle_negation(text)
+    text = re.sub(r'\s+', ' ', text).strip()
     text = text.translate(str.maketrans("", "", string.punctuation))
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
-    lemmas = [lemmatizer.lemmatize(tok, get_pos(tag)) for tok, tag in tagged if tok not in stop_words]
+    lemmas = [
+        lemmatizer.lemmatize(tok, get_pos(tag))
+        for tok, tag in tagged
+        if tok not in stop_words
+    ]
     return " ".join(lemmas)
 
-# Load model & vectorizer
+# -----------------------
+# Load models
+# -----------------------
 @st.cache_resource
 def load_models():
     tfidf = joblib.load("tfidf_vectorizer.pkl")
@@ -56,17 +74,23 @@ def load_models():
 
 tfidf, svm = load_models()
 
-# Predict sentiment
+# -----------------------
+# Prediction function
+# -----------------------
 def predict_sentiment(text):
     processed = preprocess(text)
     X = tfidf.transform([processed])
     pred = svm.predict(X)[0]
-    conf = svm.predict_proba(X).max()  # probability for the predicted class
-    return pred, conf
+    probs = svm.predict_proba(X)[0]
+    conf_dict = dict(zip(svm.classes_, probs))
+    conf_max = conf_dict[pred]
+    return pred, conf_max, conf_dict
 
+# -----------------------
 # Streamlit UI
+# -----------------------
 st.title("MAHB Customer Review Sentiment Analyzer")
-st.markdown("**Model:** Tuned LinearSVC + CalibratedClassifierCV")
+st.markdown("**Model:** Tuned LinearSVC (probability)")
 
 user_input = st.text_area("Enter your review:", height=180)
 
@@ -74,7 +98,9 @@ if st.button("Analyze"):
     if not user_input.strip():
         st.error("Please enter a review first.")
     else:
-        pred, conf = predict_sentiment(user_input)
+        pred, conf_max, conf_dict = predict_sentiment(user_input)
         st.subheader("Sentiment Result")
-        st.markdown(f"**Sentiment:** {pred}")
-        st.progress(int(conf*100))
+        st.markdown(f"**Sentiment:** {pred} ({conf_max*100:.2f}%)")
+        st.markdown("**Class Probabilities:**")
+        for cls, prob in conf_dict.items():
+            st.write(f"{cls}: {prob*100:.2f}%")
