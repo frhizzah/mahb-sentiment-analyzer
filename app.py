@@ -1,4 +1,4 @@
-# app.py
+# APP.PY
 
 import streamlit as st
 import joblib
@@ -9,17 +9,13 @@ import nltk
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
 from nltk import word_tokenize, pos_tag
+import os
 
-# ========================
-# Streamlit page setup
-# ========================
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
-st.title("MAHB Customer Review Sentiment Analyzer")
-st.markdown("**Model:** Tuned LinearSVC (3-class: Positive, Neutral, Negative)")
 
-# ========================
-# NLTK setup
-# ========================
+# ---------------------------
+# NLTK Setup
+# ---------------------------
 nltk.download('punkt')
 nltk.download('stopwords')
 nltk.download('wordnet')
@@ -56,9 +52,9 @@ def preprocess(text):
     ]
     return " ".join(lemmas)
 
-# ========================
-# Load model & vectorizer
-# ========================
+# ---------------------------
+# Load models
+# ---------------------------
 @st.cache_resource
 def load_models():
     tfidf = joblib.load("tfidf_vectorizer.pkl")
@@ -67,19 +63,22 @@ def load_models():
 
 tfidf, svm = load_models()
 
-# ========================
-# Predict sentiment
-# ========================
+# ---------------------------
+# Prediction Function
+# ---------------------------
 def predict_sentiment(text):
     processed = preprocess(text)
     X = tfidf.transform([processed])
     pred = svm.predict(X)[0]
-    conf = svm.predict_proba(X).max()
+    conf = svm.predict_proba(X).max()  # works because probability=True
     return pred, conf
 
-# ========================
+# ---------------------------
 # Streamlit UI
-# ========================
+# ---------------------------
+st.title("MAHB Customer Review Sentiment Analyzer")
+st.markdown("**Model:** Tuned LinearSVC with Probability")
+
 user_input = st.text_area("Enter your review:", height=180)
 
 if st.button("Analyze"):
@@ -89,4 +88,4 @@ if st.button("Analyze"):
         pred, conf = predict_sentiment(user_input)
         st.subheader("Sentiment Result")
         st.markdown(f"**Sentiment:** {pred}")
-        st.markdown(f"**Confidence:** {conf*100:.2f}%")
+        st.progress(int(conf*100))
