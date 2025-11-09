@@ -17,13 +17,15 @@ NLTK_DATA_PATH = "nltk_data"
 os.makedirs(NLTK_DATA_PATH, exist_ok=True)
 nltk.data.path.insert(0, NLTK_DATA_PATH)  # search local folder first
 
-# Download required packages if missing
-for pkg in ["punkt", "stopwords", "wordnet", "averaged_perceptron_tagger"]:
+# Download required NLTK packages if missing
+for pkg, subpath in [
+    ("punkt_tab", "tokenizers/punkt_tab"),
+    ("stopwords", "corpora/stopwords"),
+    ("wordnet", "corpora/wordnet"),
+    ("averaged_perceptron_tagger", "taggers/averaged_perceptron_tagger")
+]:
     try:
-        if pkg == "punkt":
-            nltk.data.find("tokenizers/punkt")
-        else:
-            nltk.data.find(f"corpora/{pkg}")
+        nltk.data.find(f"{subpath}/english")
     except LookupError:
         nltk.download(pkg, download_dir=NLTK_DATA_PATH, quiet=True)
 
@@ -105,5 +107,6 @@ if st.button("Analyze"):
             st.markdown(f"**Sentiment:** {pred}")
             st.markdown(f"**Confidence:** {confidence*100:.2f}%")
             st.progress(int(confidence * 100))
+
         except Exception as e:
             st.error(f"An error occurred during analysis: {e}")
