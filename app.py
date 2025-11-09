@@ -3,92 +3,87 @@ import joblib
 import numpy as np
 import re
 import string
-import os
 import nltk
+import os
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
 from nltk import word_tokenize, pos_tag
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
+from scipy.sparse import hstack
 
-# --- Streamlit page config ---
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
-# --- Robust NLTK setup for Streamlit Cloud (v3.8+) ---
+# NLTK setup
 NLTK_DATA_PATH = "nltk_data"
 os.makedirs(NLTK_DATA_PATH, exist_ok=True)
-nltk.data.path.insert(0, NLTK_DATA_PATH)
+nltk.data.path.append(NLTK_DATA_PATH)
+for resource in [
+    "punkt", "punkt_tab", "stopwords", "wordnet",
+    "averaged_perceptron_tagger", "averaged_perceptron_tagger_eng"
+]:
+    nltk.download(resource, download_dir=NLTK_DATA_PATH, quiet=True)
 
-resources = [
-    ("punkt_tab", "tokenizers/punkt_tab/english"),
-    ("stopwords", "corpora/stopwords"),
-    ("wordnet", "corpora/wordnet"),
-    ("averaged_perceptron_tagger_eng", "taggers/averaged_perceptron_tagger_eng")
-]
-
-for pkg, subpath in resources:
-    try:
-        nltk.data.find(subpath)
-    except LookupError:
-        nltk.download(pkg, download_dir=NLTK_DATA_PATH, quiet=True)
-
-# --- Preprocessing setup ---
 stop_words = set(stopwords.words('english'))
 domain_words = {
-    "airport","klia","staff","malaysia","malaysian","flight","terminal","gate","counter",
-    "immigration","airline","airlines","plane","arrival","departure","queue","checkin",
-    "baggage","luggage"
+    "airport","klia","staff","malaysia","malaysian","flight","terminal","gate",
+    "counter","immigration","airline","airlines","plane","arrival","departure",
+    "queue","checkin","baggage","luggage"
 }
 stop_words.update(domain_words)
 lemmatizer = WordNetLemmatizer()
+sia = SentimentIntensityAnalyzer()
+
+negation_words = set(["not","no","never","n't","none","nobody","nothing","neither","nor","nowhere","hardly","scarcely","barely"])
+
+def handle_negation(text, window=3):
+    tokens = text.split()
+    out = []
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok in negation_words:
+            out.append(tok)
+            for j in range(1, window+1):
+                if i+j < len(tokens):
+                    out.append(tokens[i+j] + "_NEG")
+            i += window + 1
+        else:
+            out.append(tok)
+            i += 1
+    return " ".join(out)
 
 def get_pos(tag):
-    if tag.startswith('J'):
-        return wordnet.ADJ
-    elif tag.startswith('V'):
-        return wordnet.VERB
-    elif tag.startswith('N'):
-        return wordnet.NOUN
-    elif tag.startswith('R'):
-        return wordnet.ADV
-    return wordnet.NOUN
+    if tag.startswith('J'): return wordnet.ADJ
+    elif tag.startswith('V'): return wordnet.VERB
+    elif tag.startswith('N'): return wordnet.NOUN
+    elif tag.startswith('R'): return wordnet.ADV
+    else: return wordnet.NOUN
 
 def preprocess(text):
-    """Normalize, clean, tokenize, remove stopwords, and lemmatize text."""
-    if not isinstance(text, str):
-        return ""
+    if not isinstance(text, str): return ""
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
-    text = re.sub(r'\s+', ' ', text).strip()
-    text = text.lower().translate(str.maketrans("", "", string.punctuation))
+    text = re.sub(r'\s+', ' ', text).strip().lower()
+    text = text.translate(str.maketrans("", "", string.punctuation))
+    text = handle_negation(text)
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
     lemmas = [
         lemmatizer.lemmatize(tok, get_pos(tag))
-        for tok, tag in tagged
-        if tok not in stop_words
+        for tok, tag in tagged if tok not in stop_words
     ]
     return " ".join(lemmas)
 
-# --- Load model & vectorizer ---
 @st.cache_resource
 def load_models():
-    tfidf = joblib.load("tfidf_vectorizer.pkl")
-    svm = joblib.load("svm_model_tuned.pkl")
-    return tfidf, svm
+    word = joblib.load("tfidf_word.pkl")
+    char = joblib.load("tfidf_char.pkl")
+    model = joblib.load("svm_model_tuned_calibrated.pkl")
+    return word, char, model
 
-tfidf, svm = load_models()
+tfidf_word, tfidf_char, model = load_models()
 
-def compute_confidence(model, X):
-    """Compute confidence as max probability using decision function."""
-    decision = model.decision_function(X)
-    if len(decision.shape) == 1:
-        prob_pos = 1 / (1 + np.exp(-decision))
-        return max(prob_pos, 1 - prob_pos)
-    e_x = np.exp(decision - np.max(decision, axis=1, keepdims=True))
-    probs = e_x / np.sum(e_x, axis=1, keepdims=True)
-    return np.max(probs)
-
-# --- Streamlit UI ---
 st.title("MAHB Customer Review Sentiment Analyzer")
-st.markdown("**Model:** Tuned LinearSVC")
+st.markdown("**Model:** Calibrated LinearSVC (TF-IDF + VADER)")
 
 user_input = st.text_area("Enter your review:", height=180)
 
@@ -96,18 +91,14 @@ if st.button("Analyze"):
     if not user_input.strip():
         st.error("Please enter a review first.")
     else:
-        try:
-            # Preprocess and predict
-            processed = preprocess(user_input)
-            X = tfidf.transform([processed])
-            pred = svm.predict(X)[0]
-            confidence = compute_confidence(svm, X)
+        processed = preprocess(user_input)
+        vader_score = np.array([[sia.polarity_scores(user_input)['compound']]])
+        Xw = tfidf_word.transform([processed])
+        Xc = tfidf_char.transform([processed])
+        X = hstack([Xw, Xc, vader_score])
+        pred = model.predict(X)[0]
+        prob = model.predict_proba(X).max()
 
-            # Display results
-            st.subheader("Sentiment Result")
-            st.markdown(f"**Sentiment:** {pred}")
-            st.markdown(f"**Confidence:** {confidence*100:.2f}%")
-            st.progress(int(confidence * 100))
-
-        except Exception as e:
-            st.error(f"An error occurred during analysis: {e}")
+        st.subheader("Sentiment Result")
+        st.markdown(f"**Sentiment:** {pred}")
+        st.progress(int(prob * 100))
