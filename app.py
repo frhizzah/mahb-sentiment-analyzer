@@ -15,13 +15,17 @@ st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 # --- NLTK setup ---
 NLTK_DATA_PATH = "nltk_data"
 os.makedirs(NLTK_DATA_PATH, exist_ok=True)
-nltk.data.path.append(NLTK_DATA_PATH)
+nltk.data.path.insert(0, NLTK_DATA_PATH)  # ensure local folder is searched first
 
-# Download NLTK data quietly (for Streamlit Cloud)
-nltk.download('punkt', download_dir=NLTK_DATA_PATH, quiet=True)
-nltk.download('stopwords', download_dir=NLTK_DATA_PATH, quiet=True)
-nltk.download('wordnet', download_dir=NLTK_DATA_PATH, quiet=True)
-nltk.download('averaged_perceptron_tagger', download_dir=NLTK_DATA_PATH, quiet=True)
+# Download required NLTK packages if missing
+for pkg in ["punkt", "stopwords", "wordnet", "averaged_perceptron_tagger"]:
+    try:
+        if pkg == "punkt":
+            nltk.data.find("tokenizers/punkt")
+        else:
+            nltk.data.find(f"corpora/{pkg}")
+    except LookupError:
+        nltk.download(pkg, download_dir=NLTK_DATA_PATH, quiet=True)
 
 # --- Preprocessing setup ---
 stop_words = set(stopwords.words('english'))
