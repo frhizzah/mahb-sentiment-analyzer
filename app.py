@@ -12,12 +12,12 @@ from nltk import word_tokenize, pos_tag
 # --- Streamlit page config ---
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
-# --- NLTK setup ---
+# --- Robust NLTK setup for Streamlit Cloud ---
 NLTK_DATA_PATH = "nltk_data"
 os.makedirs(NLTK_DATA_PATH, exist_ok=True)
-nltk.data.path.insert(0, NLTK_DATA_PATH)  # ensure local folder is searched first
+nltk.data.path.insert(0, NLTK_DATA_PATH)  # search local folder first
 
-# Download required NLTK packages if missing
+# Download required packages if missing
 for pkg in ["punkt", "stopwords", "wordnet", "averaged_perceptron_tagger"]:
     try:
         if pkg == "punkt":
@@ -93,14 +93,17 @@ if st.button("Analyze"):
     if not user_input.strip():
         st.error("Please enter a review first.")
     else:
-        # Preprocess and predict
-        processed = preprocess(user_input)
-        X = tfidf.transform([processed])
-        pred = svm.predict(X)[0]
-        confidence = compute_confidence(svm, X)
+        try:
+            # Preprocess and predict
+            processed = preprocess(user_input)
+            X = tfidf.transform([processed])
+            pred = svm.predict(X)[0]
+            confidence = compute_confidence(svm, X)
 
-        # Display results
-        st.subheader("Sentiment Result")
-        st.markdown(f"**Sentiment:** {pred}")
-        st.markdown(f"**Confidence:** {confidence*100:.2f}%")
-        st.progress(int(confidence * 100))
+            # Display results
+            st.subheader("Sentiment Result")
+            st.markdown(f"**Sentiment:** {pred}")
+            st.markdown(f"**Confidence:** {confidence*100:.2f}%")
+            st.progress(int(confidence * 100))
+        except Exception as e:
+            st.error(f"An error occurred during analysis: {e}")
