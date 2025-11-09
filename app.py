@@ -12,20 +12,21 @@ from nltk import word_tokenize, pos_tag
 # --- Streamlit page config ---
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
-# --- Robust NLTK setup for Streamlit Cloud ---
+# --- Robust NLTK setup for Streamlit Cloud (v3.8+) ---
 NLTK_DATA_PATH = "nltk_data"
 os.makedirs(NLTK_DATA_PATH, exist_ok=True)
-nltk.data.path.insert(0, NLTK_DATA_PATH)  # search local folder first
+nltk.data.path.insert(0, NLTK_DATA_PATH)
 
-# Download required NLTK packages if missing
-for pkg, subpath in [
-    ("punkt_tab", "tokenizers/punkt_tab"),
+resources = [
+    ("punkt_tab", "tokenizers/punkt_tab/english"),
     ("stopwords", "corpora/stopwords"),
     ("wordnet", "corpora/wordnet"),
-    ("averaged_perceptron_tagger", "taggers/averaged_perceptron_tagger")
-]:
+    ("averaged_perceptron_tagger_eng", "taggers/averaged_perceptron_tagger_eng")
+]
+
+for pkg, subpath in resources:
     try:
-        nltk.data.find(f"{subpath}/english")
+        nltk.data.find(subpath)
     except LookupError:
         nltk.download(pkg, download_dir=NLTK_DATA_PATH, quiet=True)
 
