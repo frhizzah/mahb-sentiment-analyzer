@@ -5,14 +5,8 @@ import joblib
 import numpy as np
 import re
 import string
-import nltk
 import os
-
-from nltk.tokenize import word_tokenize
-from nltk.corpus import stopwords, wordnet
-from nltk.stem import WordNetLemmatizer
-from nltk import pos_tag
-
+import nltk
 
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
@@ -20,15 +14,28 @@ st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 # NLTK setup
 # -----------------------
 
-# Ensure NLTK uses the correct data directory
 nltk_data_dir = os.path.join(os.getcwd(), "nltk_data")
 os.makedirs(nltk_data_dir, exist_ok=True)
 nltk.data.path.append(nltk_data_dir)
 
-nltk.download('punkt', download_dir=nltk_data_dir, quiet=True)
-nltk.download('stopwords', download_dir=nltk_data_dir, quiet=True)
-nltk.download('wordnet', download_dir=nltk_data_dir, quiet=True)
-nltk.download('averaged_perceptron_tagger', download_dir=nltk_data_dir, quiet=True)
+# Ensure NLTK uses the correct data directory
+required_nltk_packages = [
+    "punkt",
+    "stopwords",
+    "wordnet",
+    "averaged_perceptron_tagger"
+]
+
+for pkg in required_nltk_packages:
+    try:
+        nltk.data.find(pkg)
+    except LookupError:
+        nltk.download(pkg, download_dir=nltk_data_dir, quiet=True)
+    
+from nltk.tokenize import word_tokenize
+from nltk.corpus import stopwords, wordnet
+from nltk.stem import WordNetLemmatizer
+from nltk import pos_tag
 
 stop_words = set(stopwords.words('english'))
 domain_words = {
