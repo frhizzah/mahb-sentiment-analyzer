@@ -1,38 +1,29 @@
-# app.py
 import streamlit as st
 import joblib
 import numpy as np
 import re
 import string
-import os
 import nltk
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
 from nltk import word_tokenize, pos_tag
 from nltk.sentiment import SentimentIntensityAnalyzer
+import os
 
-# -------------------------------
-# Streamlit page config
-# -------------------------------
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 
-# -------------------------------
-# NLTK setup
-# -------------------------------
+# ===== NLTK Setup =====
 NLTK_DATA_PATH = "nltk_data"
 os.makedirs(NLTK_DATA_PATH, exist_ok=True)
 nltk.data.path.append(NLTK_DATA_PATH)
 
-# Download all required NLTK resources
-nltk.download("punkt", download_dir=NLTK_DATA_PATH)
-nltk.download("stopwords", download_dir=NLTK_DATA_PATH)
-nltk.download("wordnet", download_dir=NLTK_DATA_PATH)
-nltk.download("averaged_perceptron_tagger", download_dir=NLTK_DATA_PATH)
-nltk.download("vader_lexicon", download_dir=NLTK_DATA_PATH)
+# Download required resources
+for resource in ['punkt', 'stopwords', 'wordnet', 'averaged_perceptron_tagger', 'vader_lexicon']:
+    try:
+        nltk.data.find(resource)
+    except:
+        nltk.download(resource, download_dir=NLTK_DATA_PATH)
 
-# -------------------------------
-# Preprocessing
-# -------------------------------
 stop_words = set(stopwords.words('english'))
 domain_words = {
     "airport","klia","staff","malaysia","malaysian","flight","terminal","gate","counter",
@@ -41,7 +32,10 @@ domain_words = {
 }
 stop_words.update(domain_words)
 lemmatizer = WordNetLemmatizer()
+sia = SentimentIntensityAnalyzer()
 
+
+# ===== Text Preprocessing =====
 def get_pos(tag):
     if tag.startswith('J'): return wordnet.ADJ
     elif tag.startswith('V'): return wordnet.VERB
@@ -49,9 +43,9 @@ def get_pos(tag):
     elif tag.startswith('R'): return wordnet.ADV
     else: return wordnet.NOUN
 
-# Handle negations for better accuracy
 def handle_negation(text):
-    text = re.sub(r"\b(not|no|never|n't)\s+(\w+)", r"not_\2", text)
+    # simple negation handling
+    text = re.sub(r"\b(not|never|no)\b\s+(\w+)", r"\1_\2", text)
     return text
 
 def preprocess(text):
@@ -59,8 +53,9 @@ def preprocess(text):
         return ""
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
     text = re.sub(r'\s+', ' ', text).strip()
-    text = text.lower().translate(str.maketrans("", "", string.punctuation))
+    text = text.lower()
     text = handle_negation(text)
+    text = text.translate(str.maketrans("", "", string.punctuation))
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
     lemmas = [
@@ -70,25 +65,25 @@ def preprocess(text):
     ]
     return " ".join(lemmas)
 
-# -------------------------------
-# Load models
-# -------------------------------
+
+# ===== Load Models =====
 @st.cache_resource
 def load_models():
-    tfidf = joblib.load("tfidf_vectorizer.pkl")
-    svm = joblib.load("svm_model_tuned.pkl")
-    sia = SentimentIntensityAnalyzer()
-    return tfidf, svm, sia
+    try:
+        tfidf = joblib.load("tfidf_vectorizer.pkl")
+        svm = joblib.load("svm_model_tuned.pkl")
+        return tfidf, svm
+    except Exception as e:
+        st.error("Model files not found or not trained. Please check paths.")
+        st.stop()
 
-tfidf, svm, sia = load_models()
+tfidf, svm = load_models()
 
-# -------------------------------
-# Prediction helpers
-# -------------------------------
-def compute_svm_confidence(model, X):
-    """Compute probability-like confidence for SVM."""
+
+# ===== Prediction Function =====
+def compute_confidence(model, X):
     decision = model.decision_function(X)
-    if len(decision.shape) == 1:
+    if len(decision.shape) == 1:  # binary
         prob_pos = 1 / (1 + np.exp(-decision))
         return max(prob_pos, 1-prob_pos)
     e_x = np.exp(decision - np.max(decision, axis=1, keepdims=True))
@@ -96,43 +91,23 @@ def compute_svm_confidence(model, X):
     return np.max(probs)
 
 def predict_sentiment(text):
-    """Combine SVM and VADER for better accuracy."""
     processed = preprocess(text)
     X = tfidf.transform([processed])
-    
-    # SVM prediction
     svm_pred = svm.predict(X)[0]
-    svm_conf = compute_svm_confidence(svm, X)
-    
-    # VADER analysis
-    vader_scores = sia.polarity_scores(text)
-    if vader_scores['compound'] >= 0.05:
-        vader_pred = "Positive"
-    elif vader_scores['compound'] <= -0.05:
-        vader_pred = "Negative"
-    else:
-        vader_pred = "Neutral"
-    vader_conf = abs(vader_scores['compound'])
-    
-    # Combine: simple rule-based ensemble
-    if vader_pred == "Neutral":
-        final_pred = svm_pred
-        final_conf = svm_conf
-    else:
-        # weight VADER and SVM equally
-        if vader_pred == svm_pred:
-            final_pred = svm_pred
-            final_conf = (svm_conf + vader_conf)/2
-        else:
-            # choose prediction with higher confidence
-            final_pred = svm_pred if svm_conf >= vader_conf else vader_pred
-            final_conf = max(svm_conf, vader_conf)
-    
-    return final_pred, final_conf
+    confidence = compute_confidence(svm, X)
 
-# -------------------------------
-# Streamlit UI
-# -------------------------------
+    # Ensemble with VADER for neutral detection
+    vader_scores = sia.polarity_scores(text)
+    if 0.45 < vader_scores['neu'] < 0.95:
+        final_pred = "Neutral"
+        confidence = vader_scores['neu']
+    else:
+        final_pred = svm_pred
+
+    return final_pred, confidence
+
+
+# ===== Streamlit UI =====
 st.title("MAHB Customer Review Sentiment Analyzer")
 st.markdown("**Model:** Tuned LinearSVC + VADER Ensemble")
 
