@@ -37,6 +37,12 @@ lemmatizer = WordNetLemmatizer()
 # -----------------------
 # Preprocessing functions
 # -----------------------
+def get_pos(tag):
+    if tag.startswith('J'): return wordnet.ADJ
+    elif tag.startswith('V'): return wordnet.VERB
+    elif tag.startswith('N'): return wordnet.NOUN
+    elif tag.startswith('R'): return wordnet.ADV
+    else: return wordnet.NOUN
 
 def handle_negation(text):
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
