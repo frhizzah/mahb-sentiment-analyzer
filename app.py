@@ -17,6 +17,12 @@ st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 # -----------------------
 # NLTK setup
 # -----------------------
+
+# Ensure NLTK uses the correct data directory
+nltk_data_dir = os.path.join(os.getcwd(), "nltk_data")
+os.makedirs(nltk_data_dir, exist_ok=True)
+nltk.data.path.append(nltk_data_dir)
+
 nltk.download('punkt', quiet=True)
 nltk.download('stopwords', quiet=True)
 nltk.download('wordnet', quiet=True)
