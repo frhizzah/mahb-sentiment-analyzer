@@ -6,9 +6,10 @@ import numpy as np
 import re
 import string
 import nltk
+from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords, wordnet
 from nltk.stem import WordNetLemmatizer
-from nltk import word_tokenize, pos_tag
+from nltk import pos_tag
 import os
 
 st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
@@ -16,10 +17,10 @@ st.set_page_config(page_title="MAHB Sentiment Analyzer", layout="wide")
 # -----------------------
 # NLTK setup
 # -----------------------
-nltk.download('punkt')
-nltk.download('stopwords')
-nltk.download('wordnet')
-nltk.download('averaged_perceptron_tagger')
+nltk.download('punkt', quiet=True)
+nltk.download('stopwords', quiet=True)
+nltk.download('wordnet', quiet=True)
+nltk.download('averaged_perceptron_tagger', quiet=True)
 
 stop_words = set(stopwords.words('english'))
 domain_words = {
