@@ -94,6 +94,7 @@ if st.button("Analyze"):
         try:
             # Preprocess and predict
             processed = preprocess(user_input)
+            st.write("**Debug - Processed text:**", processed)
             X = tfidf.transform([processed])
             pred = svm.predict(X)[0]
             confidence = compute_confidence(svm, X)
