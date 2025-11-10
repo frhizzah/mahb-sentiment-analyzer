@@ -77,13 +77,8 @@ def load_models():
 tfidf, svm = load_models()
 
 def compute_confidence(model, X):
-    """Compute confidence as max probability using decision function."""
-    decision = model.decision_function(X)
-    if len(decision.shape) == 1:
-        prob_pos = 1 / (1 + np.exp(-decision))
-        return max(prob_pos, 1 - prob_pos)
-    e_x = np.exp(decision - np.max(decision, axis=1, keepdims=True))
-    probs = e_x / np.sum(e_x, axis=1, keepdims=True)
+    """Compute confidence as max probability using predict_proba."""
+    probs = model.predict_proba(X)
     return np.max(probs)
 
 # --- Streamlit UI ---
