@@ -54,31 +54,21 @@ def preprocess(text):
     if not isinstance(text, str):
         return ""
     
-    st.write(f"🔍 DEBUG - Input length: {len(text)} chars")
-    
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
-    st.write(f"🔍 DEBUG - After encoding: {len(text)} chars")
-    
     text = re.sub(r'\s+', ' ', text).strip()
-    st.write(f"🔍 DEBUG - After regex: {len(text)} chars")
-    
     text = text.lower()
     
-    # Handle contrastive markers - mark comparisons
-    contrastive_patterns = [
-        (r'(but|however|instead|rather than|unlike|compared to|whereas)\s+(\w+)', r'\1 CONTRAST_\2'),
-        (r'(send|go|fly)\s+(to|through)\s+\w+[\w\s]{0,50}?(best|better|excellent)', r'COMPARISON_POSITIVE'),
-        (r'(next door|neighbor|other airport)[\w\s]{0,30}?(best|better|excellent)', r'COMPARISON_POSITIVE')
-]
-
+    # SIMPLIFIED contrastive detection - just mark the phrases, don't use complex regex
+    # Mark "next door/neighbor + best/excellent" 
+    text = re.sub(r'(next door|neighbor|neighbouring)(\s+\w+){0,8}\s+(best|excellent|better)', 
+                  r'COMPARISON_TO_BETTER_AIRPORT', text)
     
-    for i, (pattern, replacement) in enumerate(contrastive_patterns):
-        before_len = len(text)
-        text = re.sub(pattern, replacement, text)
-        if len(text) != before_len:
-            st.write(f"🔍 DEBUG - Pattern {i+1} matched! Length: {len(text)} chars")
+    # Mark "send/go to X which is best"
+    text = re.sub(r'(send|go|fly)(\s+\w+){1,5}\s+(best|excellent|better)', 
+                  r'COMPARISON_TO_BETTER_AIRPORT', text)
     
-    st.write(f"🔍 DEBUG - After all contrastive patterns: {len(text)} chars")
+    # Mark contrastive conjunctions
+    text = re.sub(r'\b(but|however|instead|whereas)\s+', r'CONTRAST ', text)
     
     # Negation handling
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
@@ -93,11 +83,7 @@ def preprocess(text):
         if tok not in stop_words
     ]
     
-    result = " ".join(lemmas)
-    st.write(f"🔍 DEBUG - Final result length: {len(result)} chars")
-    st.write(f"🔍 DEBUG - Number of tokens: {len(lemmas)}")
-    
-    return result
+    return " ".join(lemmas)
 
 # --- Load model & vectorizer ---
 @st.cache_resource
