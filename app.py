@@ -54,13 +54,13 @@ def preprocess(text):
     if not isinstance(text, str):
         return ""
     
-    print(f"DEBUG - Input length: {len(text)} chars")  # ADD THIS
+    st.write(f"🔍 DEBUG - Input length: {len(text)} chars")
     
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
-    print(f"DEBUG - After encoding: {len(text)} chars")  # ADD THIS
+    st.write(f"🔍 DEBUG - After encoding: {len(text)} chars")
     
     text = re.sub(r'\s+', ' ', text).strip()
-    print(f"DEBUG - After regex: {len(text)} chars")  # ADD THIS
+    st.write(f"🔍 DEBUG - After regex: {len(text)} chars")
     
     text = text.lower()
     
@@ -71,10 +71,13 @@ def preprocess(text):
         (r'(next door|neighbor|other airport).*?(best|better|excellent)', r'COMPARISON_POSITIVE')
     ]
     
-    for pattern, replacement in contrastive_patterns:
+    for i, (pattern, replacement) in enumerate(contrastive_patterns):
+        before_len = len(text)
         text = re.sub(pattern, replacement, text)
-
-    print(f"DEBUG - After contrastive: {len(text)} chars")
+        if len(text) != before_len:
+            st.write(f"🔍 DEBUG - Pattern {i+1} matched! Length: {len(text)} chars")
+    
+    st.write(f"🔍 DEBUG - After all contrastive patterns: {len(text)} chars")
     
     # Negation handling
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
@@ -88,9 +91,11 @@ def preprocess(text):
         for tok, tag in tagged
         if tok not in stop_words
     ]
-    return " ".join(lemmas)
-    print(f"DEBUG - Final length: {len(result)} chars")
-
+    
+    result = " ".join(lemmas)
+    st.write(f"🔍 DEBUG - Final result length: {len(result)} chars")
+    st.write(f"🔍 DEBUG - Number of tokens: {len(lemmas)}")
+    
     return result
 
 # --- Load model & vectorizer ---
