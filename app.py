@@ -59,22 +59,17 @@ def preprocess(text):
     text = text.lower()
     
     # Detect comparative statements about OTHER airports
-    # Pattern: "send/go to X ... best/excellent" 
     text = re.sub(r'(send|go|fly).{0,100}?(best|excellent|better)\s+(airport|terminal)', 
-                  r'COMPARING_TO_BETTER_AIRPORT', text)
-    
-    # Pattern: "next door/neighbor ... best/excellent"
+                  r'COMPARINGTOBETTERAIRPORT', text)
     text = re.sub(r'(next door|neighbor|neighbouring).{0,60}?(best|excellent|better)', 
-                  r'COMPARING_TO_BETTER_AIRPORT', text)
-    
-    # Mark "run the best" separately (since it's about another airport)
+                  r'COMPARINGTOBETTERAIRPORT', text)
     text = re.sub(r'run.{0,20}?(best|excellent)\s+airport', 
-                  r'COMPARING_TO_BETTER_AIRPORT', text)
+                  r'COMPARINGTOBETTERAIRPORT', text)
     
     # Mark contrastive conjunctions that flip sentiment
     text = re.sub(r'\b(however|but|although|though|yet)\b', r'CONTRAST', text)
-
-    # Negation handling BEFORE removing punctuation
+    
+    # Negation handling
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
     text = re.sub(r"\bno\b\s+(\w+)", r"no_\1", text)
     
@@ -105,7 +100,7 @@ def compute_confidence(model, X):
 
 # --- Streamlit UI ---
 st.title("MAHB Customer Review Sentiment Analyzer")
-st.markdown("**Model:** Tuned LinearSVC")
+st.markdown("**Model:** Tuned LinearSVC with Sentiment Analysis")
 
 user_input = st.text_area("Enter your review:", height=180)
 
@@ -116,7 +111,6 @@ if st.button("Analyze"):
         try:
             # Preprocess and predict
             processed = preprocess(user_input)
-            st.write("**Debug - Processed text:**", processed)
             X = tfidf.transform([processed])
             pred = svm.predict(X)[0]
             confidence = compute_confidence(svm, X)
@@ -125,24 +119,14 @@ if st.button("Analyze"):
             st.subheader("Sentiment Result")
             st.markdown(f"**Sentiment:** {pred}")
             st.markdown(f"**Confidence:** {confidence*100:.2f}%")
-            st.progress(int(confidence * 100))
-
-            st.write("---")  # Separator line
-            st.write("### Debug: Testing individual negative words")
-            test_reviews = [
-                "worst",
-                "terrible", 
-                "chaos",
-                "bad",
-                "worst airport chaos terrible"
-            ]
             
-            for test in test_reviews:
-                proc = preprocess(test)
-                X_test = tfidf.transform([proc])
-                pred_test = svm.predict(X_test)[0]
-                conf_test = compute_confidence(svm, X_test)
-                st.write(f"'{test}' → Processed: '{proc}' → Prediction: **{pred_test}** ({conf_test*100:.2f}%)")
+            # Confidence indicator
+            if confidence < 0.65:
+                st.warning("⚠️ **Low Confidence**: This review may have mixed sentiment or unclear language.")
+            elif confidence > 0.85:
+                st.success("✅ **High Confidence**: Clear sentiment detected.")
+            
+            st.progress(int(confidence * 100))
 
         except Exception as e:
             st.error(f"An error occurred during analysis: {e}")
