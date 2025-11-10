@@ -109,5 +109,22 @@ if st.button("Analyze"):
             st.markdown(f"**Confidence:** {confidence*100:.2f}%")
             st.progress(int(confidence * 100))
 
+            st.write("---")  # Separator line
+            st.write("### Debug: Testing individual negative words")
+            test_reviews = [
+                "worst",
+                "terrible", 
+                "chaos",
+                "bad",
+                "worst airport chaos terrible"
+            ]
+            
+            for test in test_reviews:
+                proc = preprocess(test)
+                X_test = tfidf.transform([proc])
+                pred_test = svm.predict(X_test)[0]
+                conf_test = compute_confidence(svm, X_test)
+                st.write(f"'{test}' → Processed: '{proc}' → Prediction: **{pred_test}** ({conf_test*100:.2f}%)")
+
         except Exception as e:
             st.error(f"An error occurred during analysis: {e}")
