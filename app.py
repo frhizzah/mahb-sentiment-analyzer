@@ -54,8 +54,14 @@ def preprocess(text):
     if not isinstance(text, str):
         return ""
     
+    print(f"DEBUG - Input length: {len(text)} chars")  # ADD THIS
+    
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
+    print(f"DEBUG - After encoding: {len(text)} chars")  # ADD THIS
+    
     text = re.sub(r'\s+', ' ', text).strip()
+    print(f"DEBUG - After regex: {len(text)} chars")  # ADD THIS
+    
     text = text.lower()
     
     # Handle contrastive markers - mark comparisons
@@ -67,6 +73,8 @@ def preprocess(text):
     
     for pattern, replacement in contrastive_patterns:
         text = re.sub(pattern, replacement, text)
+
+    print(f"DEBUG - After contrastive: {len(text)} chars")
     
     # Negation handling
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
@@ -81,6 +89,9 @@ def preprocess(text):
         if tok not in stop_words
     ]
     return " ".join(lemmas)
+    print(f"DEBUG - Final length: {len(result)} chars")
+
+    return result
 
 # --- Load model & vectorizer ---
 @st.cache_resource
