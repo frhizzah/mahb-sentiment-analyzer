@@ -33,7 +33,7 @@ for pkg, subpath in resources:
 # --- Preprocessing setup ---
 stop_words = set(stopwords.words('english'))
 domain_words = {
-    "klia"
+    "klia", "airport"
 }
 stop_words.update(domain_words)
 lemmatizer = WordNetLemmatizer()
@@ -53,11 +53,22 @@ def preprocess(text):
     """Normalize, clean, tokenize, remove stopwords, and lemmatize text."""
     if not isinstance(text, str):
         return ""
+    
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
     text = re.sub(r'\s+', ' ', text).strip()
     text = text.lower()
     
-    # ADD NEGATION HANDLING BEFORE REMOVING PUNCTUATION
+    # Handle contrastive markers - mark comparisons
+    contrastive_patterns = [
+        (r'(but|however|instead|rather than|unlike|compared to|whereas)\s+(\w+)', r'\1 CONTRAST_\2'),
+        (r'(send|go|fly)\s+(to|through)\s+\w+.*?(best|better|excellent)', r'COMPARISON_POSITIVE'),
+        (r'(next door|neighbor|other airport).*?(best|better|excellent)', r'COMPARISON_POSITIVE')
+    ]
+    
+    for pattern, replacement in contrastive_patterns:
+        text = re.sub(pattern, replacement, text)
+    
+    # Negation handling
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
     text = re.sub(r"\bno\b\s+(\w+)", r"no_\1", text)
     
