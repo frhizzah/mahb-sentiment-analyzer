@@ -33,9 +33,7 @@ for pkg, subpath in resources:
 # --- Preprocessing setup ---
 stop_words = set(stopwords.words('english'))
 domain_words = {
-    "airport","klia","staff","malaysia","malaysian","flight","terminal","gate","counter",
-    "immigration","airline","airlines","plane","arrival","departure","queue","checkin",
-    "baggage","luggage"
+    "klia"
 }
 stop_words.update(domain_words)
 lemmatizer = WordNetLemmatizer()
@@ -57,7 +55,13 @@ def preprocess(text):
         return ""
     text = text.encode('latin1', 'ignore').decode('utf-8', 'ignore')
     text = re.sub(r'\s+', ' ', text).strip()
-    text = text.lower().translate(str.maketrans("", "", string.punctuation))
+    text = text.lower()
+    
+    # ADD NEGATION HANDLING BEFORE REMOVING PUNCTUATION
+    text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
+    text = re.sub(r"\bno\b\s+(\w+)", r"no_\1", text)
+    
+    text = text.translate(str.maketrans("", "", string.punctuation))
     tokens = word_tokenize(text)
     tagged = pos_tag(tokens)
     lemmas = [
