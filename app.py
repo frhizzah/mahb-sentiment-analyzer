@@ -67,9 +67,10 @@ def preprocess(text):
     # Handle contrastive markers - mark comparisons
     contrastive_patterns = [
         (r'(but|however|instead|rather than|unlike|compared to|whereas)\s+(\w+)', r'\1 CONTRAST_\2'),
-        (r'(send|go|fly)\s+(to|through)\s+\w+.*?(best|better|excellent)', r'COMPARISON_POSITIVE'),
-        (r'(next door|neighbor|other airport).*?(best|better|excellent)', r'COMPARISON_POSITIVE')
-    ]
+        (r'(send|go|fly)\s+(to|through)\s+\w+[\w\s]{0,50}?(best|better|excellent)', r'COMPARISON_POSITIVE'),
+        (r'(next door|neighbor|other airport)[\w\s]{0,30}?(best|better|excellent)', r'COMPARISON_POSITIVE')
+]
+
     
     for i, (pattern, replacement) in enumerate(contrastive_patterns):
         before_len = len(text)
