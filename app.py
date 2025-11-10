@@ -71,6 +71,9 @@ def preprocess(text):
     text = re.sub(r'run.{0,20}?(best|excellent)\s+airport', 
                   r'COMPARING_TO_BETTER_AIRPORT', text)
     
+    # Mark contrastive conjunctions that flip sentiment
+    text = re.sub(r'\b(however|but|although|though|yet)\b', r'CONTRAST', text)
+
     # Negation handling BEFORE removing punctuation
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
     text = re.sub(r"\bno\b\s+(\w+)", r"no_\1", text)
