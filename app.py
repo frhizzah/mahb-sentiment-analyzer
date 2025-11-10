@@ -58,19 +58,20 @@ def preprocess(text):
     text = re.sub(r'\s+', ' ', text).strip()
     text = text.lower()
     
-    # SIMPLIFIED contrastive detection - just mark the phrases, don't use complex regex
-    # Mark "next door/neighbor + best/excellent" 
-    text = re.sub(r'(next door|neighbor|neighbouring)(\s+\w+){0,8}\s+(best|excellent|better)', 
-                  r'COMPARISON_TO_BETTER_AIRPORT', text)
+    # Detect comparative statements about OTHER airports
+    # Pattern: "send/go to X ... best/excellent" 
+    text = re.sub(r'(send|go|fly).{0,100}?(best|excellent|better)\s+(airport|terminal)', 
+                  r'COMPARING_TO_BETTER_AIRPORT', text)
     
-    # Mark "send/go to X which is best"
-    text = re.sub(r'(send|go|fly)(\s+\w+){1,5}\s+(best|excellent|better)', 
-                  r'COMPARISON_TO_BETTER_AIRPORT', text)
+    # Pattern: "next door/neighbor ... best/excellent"
+    text = re.sub(r'(next door|neighbor|neighbouring).{0,60}?(best|excellent|better)', 
+                  r'COMPARING_TO_BETTER_AIRPORT', text)
     
-    # Mark contrastive conjunctions
-    text = re.sub(r'\b(but|however|instead|whereas)\s+', r'CONTRAST ', text)
+    # Mark "run the best" separately (since it's about another airport)
+    text = re.sub(r'run.{0,20}?(best|excellent)\s+airport', 
+                  r'COMPARING_TO_BETTER_AIRPORT', text)
     
-    # Negation handling
+    # Negation handling BEFORE removing punctuation
     text = re.sub(r"\bnot\b\s+(\w+)", r"not_\1", text)
     text = re.sub(r"\bno\b\s+(\w+)", r"no_\1", text)
     
